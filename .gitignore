@@ -172,9 +172,11 @@ texture_cache*.pbz2
 # train info results
 wandb/
 tensorboard_log/
+checkpoints/
 
 # third party
 verl/
 OpenRLHF/
 ellm/
 .claude/
+Craftax_Baselines/

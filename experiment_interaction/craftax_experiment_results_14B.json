@@ -1,0 +1,418 @@
+{
+  "num_episodes": 1,
+  "episodes": [
+    {
+      "total_reward": 0.0,
+      "total_steps": 50,
+      "completed": false,
+      "average_reward": 0.0,
+      "history": [
+        {
+          "step": 1,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 2,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 3,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 4,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 5,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 6,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 7,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 8,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 9,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 10,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 11,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 12,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 13,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 14,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 15,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 16,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 17,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 18,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 19,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 20,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 21,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 22,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 23,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 24,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 25,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 26,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 27,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 28,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 29,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 30,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 31,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 32,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 33,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 34,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 35,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 36,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 37,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 38,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 39,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 40,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 41,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 42,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 43,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 44,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 45,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 46,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 47,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 48,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 49,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        },
+        {
+          "step": 50,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "Action: right (ID: 2)"
+        }
+      ]
+    }
+  ],
+  "mean_reward": 0.0,
+  "std_reward": 0.0,
+  "max_reward": 0.0,
+  "min_reward": 0.0,
+  "completion_rate": 0.0
+}

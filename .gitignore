@@ -167,3 +167,14 @@ cython_debug/
 .idea/
 texture_cache.pbz2
 texture_cache*.pbz2
+
+
+# train info results
+wandb/
+tensorboard_log/
+
+# third party
+verl/
+OpenRLHF/
+ellm/
+.claude/

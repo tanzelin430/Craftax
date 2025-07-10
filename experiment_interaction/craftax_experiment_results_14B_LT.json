@@ -1,0 +1,58 @@
+{
+  "num_episodes": 1,
+  "episodes": [
+    {
+      "total_reward": 0.0,
+      "total_steps": 5,
+      "completed": false,
+      "average_reward": 0.0,
+      "history": [
+        {
+          "step": 1,
+          "action_id": 1,
+          "action_name": "left",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "[Reasoning] I need to start by gathering resources to survive and progress in the game. The nearest resources are coal at (-4, -4) and stone at (-5, -4) and (-5, -3). I should move towards the coal first since it can be used to make torches for light and potentially for crafting. I will move left to reach the coal. Action: left (ID: 1)"
+        },
+        {
+          "step": 2,
+          "action_id": 1,
+          "action_name": "left",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "[Reasoning] I need to start by gathering resources to survive and progress in the game. The nearest resources are wood, which can be obtained by cutting trees. Looking at the map, there are trees at positions (-1, 2), (0, 2), and (-1, 1). I should move toward one of these locations to gather wood. Since I'm currently facing left, I'll first move in that direction to approach the trees. \n\nAction: left (ID: 1)"
+        },
+        {
+          "step": 3,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "[Reasoning] I need to gather resources to progress in the game. The nearest resources I can collect are wood, which is needed to craft tools. There is a tree at position (0, 1), so I should move towards it. Since I'm currently facing left, I need to turn around and move right. \n\nAction: right (ID: 2)"
+        },
+        {
+          "step": 4,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "[Reasoning] I need to gather resources to survive and progress in the game. The nearest accessible resources are wood, which can be obtained by cutting trees. Looking at the map, there are trees at positions (-1, 2), (0, 2), and (-1, 1). I should move toward one of these locations to gather wood. Starting with moving right to approach the trees.  \nAction: right (ID: 2)"
+        },
+        {
+          "step": 5,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "[Reasoning] I need to gather resources to progress in the game. The nearest accessible resources are wood, which can be obtained by cutting trees. There is a tree at (-2, 1) and (-2, 2), so I should move towards those locations. First, I will move right to get closer to the trees. \n\nAction: right (ID: 2)"
+        }
+      ]
+    }
+  ],
+  "mean_reward": 0.0,
+  "std_reward": 0.0,
+  "max_reward": 0.0,
+  "min_reward": 0.0,
+  "completion_rate": 0.0
+}

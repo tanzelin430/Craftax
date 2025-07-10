@@ -1,0 +1,488 @@
+# ========== Global Model Configuration ==========
+# 统一的模型路径配置，方便修改
+model_path: &model_path /fs-computility/mabasic/shared/models/Qwen3-4B
+
+data:
+  train_files: []
+  val_files: []
+  
+  # Custom dataset class
+  custom_cls:
+    path: craftax_dataset.py
+    name: CraftaxDataset
+    
+  # Craftax specific settings
+  num_episodes: 256
+  max_episode_steps: 500 
+  
+  # Standard data config
+  prompt_key: prompt
+  reward_fn_key: data_source
+  max_prompt_length: 2048
+  max_response_length: 512
+  train_batch_size: 256 # should be smaller than num_episodes
+  val_batch_size: 128
+  return_raw_input_ids: false
+  return_raw_chat: false
+  return_full_prompt: false
+  shuffle: true
+  dataloader_num_workers: 0
+  validation_shuffle: false
+  filter_overlong_prompts: false
+  filter_overlong_prompts_workers: 1
+  truncation: error
+  trust_remote_code: true
+  return_multi_modal_inputs: false
+  
+  # Sampler settings
+  sampler:
+    class_path: null
+    class_name: null
+
+actor_rollout_ref:
+  # Whether it's a hybrid engine, currently only supports hybrid engine
+  hybrid_engine: true
+  
+  model:
+    path: *model_path
+    dtype: bfloat16
+    trust_remote_code: true
+    
+  actor:
+    strategy: fsdp
+    use_dynamic_bsz: false
+    # optimizer configs
+    optim:
+      lr: 1e-6
+      lr_warmup_steps_ratio: 0.0
+      min_lr_ratio: null
+      warmup_style: constant
+      total_training_steps: -1
+      weight_decay: 0.01
+    
+    # FSDP config - 优化显存使用 (Actor)
+    fsdp_config:
+      param_offload: true  # 参数卸载到 CPU
+      optimizer_offload: true  # 优化器状态卸载到 CPU
+      offload_policy: true  # 启用卸载策略
+      reshard_after_forward: true
+      wrap_policy:
+        min_num_params: 1000000  # 增加最小参数数量以减少通信开销
+      fsdp_size: -1
+      forward_prefetch: true  # 启用前向预取
+    
+    # PPO settings - 优化显存使用
+    ppo_mini_batch_size: 8  # 增加 mini batch 大小（必须大于0）
+    ppo_micro_batch_size: null
+    ppo_micro_batch_size_per_gpu: 1
+    ppo_epochs: 3
+    ppo_max_token_len_per_gpu: 8192  # 减少每 GPU 最大 token 长度
+    
+    
+    # Sequence parallelism
+    ulysses_sequence_parallel_size: 1
+    
+    # Training settings
+    shuffle: true
+    grad_clip: 1.0
+    clip_ratio: 0.2
+    clip_ratio_low: null  # 可选的低 clip 比率
+    clip_ratio_high: null  # 可选的高 clip 比率
+    entropy_coeff: 0.01  # 熵正则化系数，鼓励探索
+    
+    # Policy loss configuration
+    policy_loss:
+      loss_mode: clip_cov  # 策略损失模式：clip_cov, kl_cov, gpg
+      clip_cov_ratio: 0.2  # clip 协方差比率
+      clip_cov_lb: null  # clip 协方差下界
+      clip_cov_ub: null  # clip 协方差上界
+    
+    loss_agg_mode: token-mean
+    
+    # KL settings
+    use_kl_loss: false
+    
+    # Torch compile
+    use_torch_compile: false
+    
+    # Gradient checkpointing
+    enable_gradient_checkpointing: true  # 启用梯度检查点
+    
+    # Activation offloading
+    enable_activation_offload: true  # 启用激活卸载
+    
+    # Remove padding
+    use_remove_padding: true  # 启用padding移除
+    
+    # Entropy settings
+    entropy_from_logits_with_chunking: false
+    entropy_checkpointing: false
+    
+    # Checkpoint settings
+    checkpoint:
+      save_contents: ['model', 'optimizer', 'extra']
+      load_contents: ['model', 'optimizer', 'extra']
+  
+  # Reference model config
+  ref:
+    strategy: fsdp
+    
+    # FSDP config
+    fsdp_config:
+      param_offload: false
+      reshard_after_forward: true
+      forward_prefetch: false
+      wrap_policy:
+        min_num_params: 0
+    
+    # Torch compile
+    use_torch_compile: false
+    
+    # Log prob settings
+    log_prob_micro_batch_size: null
+    log_prob_micro_batch_size_per_gpu: 1
+    log_prob_use_dynamic_bsz: false
+    log_prob_max_token_len_per_gpu: 32768
+    
+    # Sequence parallelism
+    ulysses_sequence_parallel_size: 1
+    
+    # Entropy settings
+    entropy_from_logits_with_chunking: false
+    entropy_checkpointing: false
+    
+    # Profiler
+    profiler:
+      _target_: verl.utils.profiler.ProfilerConfig
+      discrete: false
+      all_ranks: false
+      ranks: []
+    
+  rollout:
+    name: vllm
+    mode: async
+    gpu_memory_utilization: 0.3  # 降低显存利用率
+    tensor_model_parallel_size: 4  # Actor 使用 4 张卡
+    max_model_len: 2048  # 减少最大序列长度
+    actor_rollout_ref.actor.use_dynamic_bsz: false 
+
+    # Sampling parameters
+    temperature: 0.7
+    top_p: 0.9
+    top_k: -1
+    do_sample: true
+    n: 1  # number of responses per prompt
+    
+    # Sequence lengths
+    prompt_length: 2048
+    response_length: 512
+    
+    # Additional rollout settings
+    dtype: bfloat16
+    ignore_eos: false
+    enforce_eager: true
+    free_cache_engine: false
+    load_format: dummy_dtensor
+    layered_summon: false
+    max_num_batched_tokens: 8192
+    max_num_seqs: 1024
+    disable_log_stats: true
+    enable_chunked_prefill: true
+    multi_stage_wake_up: false
+    
+    # Validation parameters
+    val_kwargs:
+      temperature: 0.3
+      top_p: 0.8
+      top_k: -1
+      n: 16
+      do_sample: false
+      
+    # Agent loop configuration
+    agent:
+      num_workers: 8
+      custom_async_server:
+        path: null
+        name: null
+        
+    # Multi-turn settings
+    multi_turn:
+      enable: false
+      max_assistant_turns: null
+      tool_config_path: null
+      max_user_turns: null
+      max_parallel_calls: 1
+      max_tool_response_length: 256
+      tool_response_truncate_side: middle
+      interaction_config_path: null
+      completion_callback: null
+      use_inference_chat_template: false
+      tokenization_sanity_check_mode: strict
+      format: hermes
+      
+    # Additional settings
+    calculate_log_probs: false
+    log_prob_micro_batch_size: null
+    log_prob_micro_batch_size_per_gpu: 1
+    log_prob_use_dynamic_bsz: false
+    log_prob_max_token_len_per_gpu: 32768
+    
+    # # Engine kwargs
+    # engine_kwargs:
+    #   vllm:
+    #     swap_space: null
+    #     disable_mm_preprocessor_cache: false
+    #   sglang:
+    #     attention_backend: null
+
+critic:
+  model:
+    path: *model_path
+    dtype: bfloat16
+    trust_remote_code: true
+    use_shm: false
+    tokenizer_path: *model_path
+    override_config: {}
+    external_lib: null
+    enable_gradient_checkpointing: true  # 启用梯度检查点
+    enable_activation_offload: true  # 启用激活卸载
+    use_remove_padding: true  # 启用padding移除
+    
+    # FSDP config - 优化显存使用 (Critic)
+    fsdp_config:
+      param_offload: true  # 参数卸载到 CPU
+      optimizer_offload: true  # 优化器状态卸载到 CPU
+      offload_policy: true  # 启用卸载策略
+      reshard_after_forward: true
+      wrap_policy:
+        min_num_params: 1000000  # 增加最小参数数量以减少通信开销
+      fsdp_size: -1
+      forward_prefetch: true  # 启用前向预取
+    
+    # LoRA settings
+    lora_rank: 0
+    lora_alpha: 16
+    target_modules: all-linear
+    
+  strategy: fsdp
+    
+  rollout:
+    name: vllm
+    mode: async
+    gpu_memory_utilization: 0.3  # 降低显存利用率
+    tensor_model_parallel_size: 4  # Critic 使用另外 4 张卡
+    max_model_len: 2048  # 减少最大序列长度
+    
+    # Same configuration as actor
+    agent:
+      num_workers: 8
+      custom_async_server: null
+      
+    prompt_length: 2048
+    response_length: 512
+    temperature: 0.7
+    top_p: 0.9
+    
+    val_kwargs:
+      temperature: 0.3
+      top_p: 0.8
+      
+    free_cache_engine: false
+
+  # Number of rollouts per update
+  rollout_n: 1
+  
+  # Optimizer config
+  optim:
+    lr: 5e-6
+    lr_warmup_steps_ratio: 0.0
+    min_lr_ratio: null
+    warmup_style: constant
+    total_training_steps: -1
+    weight_decay: 0.01
+  
+  # PPO settings - 优化显存使用
+  ppo_mini_batch_size: 8  # 增加 mini batch 大小（必须大于0）
+  ppo_micro_batch_size: null
+  ppo_micro_batch_size_per_gpu: 1
+  ppo_epochs: 3
+  ppo_max_token_len_per_gpu: 8192  # 减少每 GPU 最大 token 长度
+  
+  # Forward settings
+  forward_micro_batch_size: null
+  forward_micro_batch_size_per_gpu: 1
+  forward_max_token_len_per_gpu: 8192  # 减少前向传播最大 token 长度
+  
+  # Dynamic batch size
+  use_dynamic_bsz: false
+  
+  # Sequence parallelism
+  ulysses_sequence_parallel_size: 1
+  
+  # Training settings
+  shuffle: true
+  grad_clip: 1.0
+  cliprange_value: 0.5
+  loss_agg_mode: token-mean
+  
+  
+  # Checkpoint settings
+  checkpoint:
+    save_contents: ['model', 'optimizer', 'extra']
+    load_contents: ['model', 'optimizer', 'extra']
+
+# PPO algorithm configuration
+alg:
+  kl_ctrl:
+    kl_coef: 0.01
+    adaptive_kl: true
+    target_kl: 0.01
+    
+  ppo:
+    clip_range: 0.2
+    clip_range_vf: 0.2
+    entropy_coef: 0.01
+    value_loss_coef: 0.5
+    max_grad_norm: 1.0
+    
+  # Learning rates
+  optim:
+    actor_lr: 1e-6
+    critic_lr: 5e-6
+    
+  # Training parameters
+  num_mini_batches: 4
+  ppo_epochs: 3
+  
+# Training configuration
+trainer:
+  default_hdfs_dir: null
+  project_name: craftax_ppo
+  experiment_name: qwen3_craftax_v1_4B
+  
+  # GPU configuration - 4 GPUs on 1 node (留2块给JAX环境)
+  nnodes: 1
+  n_gpus_per_node: 8
+  device: cuda
+  
+  # Logging
+  logger:
+    - console
+    - wandb  # 添加 WandB 实验追踪
+  
+    
+  # Checkpointing
+  checkpoint:
+    interval: 1000
+    save_optimizer: true
+    
+  # Validation
+  val_freq: 500
+  save_freq: 1000
+  
+  # Training iterations
+  total_epochs: 100
+  total_training_steps: 500
+  test_freq: 10
+  
+  # Batch configuration - 优化批次大小
+  rollout_batch_size: 8  # rollout 批次大小
+  train_batch_size: 64    # 训练批次大小（应该 >= ppo_mini_batch_size）
+  
+  # Additional trainer settings
+  balance_batch: true
+  profile_steps: null
+  controller_nsight_options:
+    trace: "cuda,nvtx,cublas,ucx"
+    cuda-memory-usage: "true"
+    cuda-graph-trace: "graph"
+  worker_nsight_options:
+    trace: "cuda,nvtx,cublas,ucx"
+    cuda-memory-usage: "true"
+    cuda-graph-trace: "graph"
+    capture-range: "cudaProfilerApi"
+    capture-range-end: null
+    kill: none
+  
+  # Logging and validation
+  log_val_generations: 0
+  rollout_data_dir: null
+  validation_data_dir: null
+  esi_redundant_time: 0
+  resume_mode: disable  # 从头开始训练，不恢复任何 checkpoint
+  resume_from_path: null
+  val_before_train: true
+  val_only: false
+  critic_warmup: 0
+  del_local_ckpt_after_load: false
+  default_local_dir: checkpoints/craftax_ppo/qwen3_craftax_v1_4B
+  max_actor_ckpt_to_keep: null
+  max_critic_ckpt_to_keep: null
+  ray_wait_register_center_timeout: 300
+  
+  # Miscellaneous
+  max_episode_steps: 20
+  seed: 42
+
+# Ray initialization
+ray_init:
+  num_cpus: 32
+
+# 自定义奖励函数配置 - 必须在根级别，这样 get_custom_reward_fn 才能找到
+custom_reward_function:
+  path: /root/work/Craftax/craftax_reward_fn.py
+  name: craftax_reward_function
+  reward_kwargs: {}
+
+# Reward model configuration
+reward_model:
+  enable: true  # 启用奖励模型，因为我们使用自定义奖励函数
+  launch_reward_fn_async: true
+  use_dynamic_bsz: false
+  micro_batch_size: null
+  micro_batch_size_per_gpu: 1
+  
+  # Sandbox fusion 配置 - 设置为 null 因为我们不使用 sandbox
+  sandbox_fusion: null
+# Algorithm configuration
+algorithm:
+  # Required when using verl.utils.omega_conf_to_dataclass to instantiate dataclass configs in the entrypoint
+  _target_: verl.trainer.config.AlgoConfig
+  
+  # Discount factor for future rewards
+  gamma: 1.0
+  
+  # Trade-off between bias and variance in the GAE estimator
+  lam: 1.0
+  
+  # Advantage estimator type: "gae", "grpo", "reinforce_plus_plus", etc.
+  adv_estimator: gae
+  
+  # Whether to normalize advantages by std (specific to GRPO)
+  norm_adv_by_std_in_grpo: true
+  
+  # Whether to enable in-reward KL penalty
+  use_kl_in_reward: false
+  
+  # How to estimate KL divergence: "kl", "abs", "mse", "low_var_kl", or "full"
+  kl_penalty: kl
+  
+  # KL control configuration
+  kl_ctrl:
+    # Required when using verl.utils.omega_conf_to_dataclass to instantiate dataclass configs in the entrypoint
+    _target_: verl.trainer.config.KLControlConfig
+    
+    # KL control type: "fixed" or "adaptive"
+    type: fixed
+    
+    # Initial coefficient for KL penalty
+    kl_coef: 0.001
+    
+    # Horizon value for adaptive controller (if enabled)
+    horizon: 10000
+    
+    # Target KL divergence (used for adaptive controller)
+    target_kl: 0.1
+  
+  # Whether to enable preference feedback PPO
+  use_pf_ppo: false

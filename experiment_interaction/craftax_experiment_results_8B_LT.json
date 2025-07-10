@@ -1,0 +1,58 @@
+{
+  "num_episodes": 1,
+  "episodes": [
+    {
+      "total_reward": 0.0,
+      "total_steps": 5,
+      "completed": false,
+      "average_reward": 0.0,
+      "history": [
+        {
+          "step": 1,
+          "action_id": 3,
+          "action_name": "up",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "[Reasoning] I need to gather resources to survive and progress in the game. The map shows several trees and grass blocks that can be used to gather wood. I should move towards the trees to collect wood. Since I am facing up, I will move up first to check the surroundings.\n\nAction: up (ID: 3)"
+        },
+        {
+          "step": 2,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "[Reasoning] I need to gather resources to craft tools and survive. The map shows trees and stones nearby, which I can use to make a pickaxe and sword. I should move towards the trees first to collect wood. Action: right (ID: 2)"
+        },
+        {
+          "step": 3,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "[Reasoning] I need to gather resources to craft tools and survive. The map shows trees and stones nearby, which I can use to make a pickaxe and sword. I should move right to explore and collect materials.  \nAction: right (ID: 2)"
+        },
+        {
+          "step": 4,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "[Reasoning] I need to gather resources to craft tools and survive. The map shows trees and stones nearby, which I can use to make a pickaxe and sword. I should move right to collect resources. Action: right (ID: 2)"
+        },
+        {
+          "step": 5,
+          "action_id": 2,
+          "action_name": "right",
+          "reward": 0.0,
+          "done": false,
+          "llm_response": "[Reasoning] I need to gather resources to craft tools and survive. The map shows trees and stones nearby, which I can use to make a pickaxe and sword. I should move towards the trees to collect wood first. Action: right (ID: 2)"
+        }
+      ]
+    }
+  ],
+  "mean_reward": 0.0,
+  "std_reward": 0.0,
+  "max_reward": 0.0,
+  "min_reward": 0.0,
+  "completion_rate": 0.0
+}

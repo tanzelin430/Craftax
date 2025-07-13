@@ -1,6 +1,6 @@
 # ========== Global Model Configuration ==========
 # 统一的模型路径配置，方便修改
-model_path: &model_path /fs-computility/mabasic/shared/models/Qwen3-4B
+model_path: &model_path /fs-computility/mabasic/shared/models/Qwen3-0.6B
 
 data:
   train_files: []
@@ -11,22 +11,22 @@ data:
     path: craftax_dataset.py
     name: CraftaxDataset
     
-  # Craftax specific settings
-  num_episodes: 256
-  max_episode_steps: 500 
+  # Craftax specific settings - 增加批量大小
+  num_episodes: 32  # 增加到32个episode，提高批量效率
+  max_episode_steps: 3  # 适当减少单episode步数，平衡训练效率 
   
   # Standard data config
   prompt_key: prompt
   reward_fn_key: data_source
   max_prompt_length: 2048
   max_response_length: 512
-  train_batch_size: 256 # should be smaller than num_episodes
-  val_batch_size: 128
+  train_batch_size: 32 # 增加批量大小，与num_episodes匹配
+  val_batch_size: 16
   return_raw_input_ids: false
   return_raw_chat: false
   return_full_prompt: false
   shuffle: true
-  dataloader_num_workers: 0
+  dataloader_num_workers: 4
   validation_shuffle: false
   filter_overlong_prompts: false
   filter_overlong_prompts_workers: 1
@@ -49,7 +49,7 @@ actor_rollout_ref:
     trust_remote_code: true
     
   actor:
-    strategy: fsdp
+    strategy: fsdp2
     use_dynamic_bsz: false
     # optimizer configs
     optim:
@@ -71,11 +71,11 @@ actor_rollout_ref:
       fsdp_size: -1
       forward_prefetch: true  # 启用前向预取
     
-    # PPO settings - 优化显存使用
-    ppo_mini_batch_size: 8  # 增加 mini batch 大小（必须大于0）
+    # PPO settings - 优化批量训练效率
+    ppo_mini_batch_size: 16  # 增加批次大小，提高GPU利用率
     ppo_micro_batch_size: null
-    ppo_micro_batch_size_per_gpu: 1
-    ppo_epochs: 3
+    ppo_micro_batch_size_per_gpu: 1  # 保持micro batch大小
+    ppo_epochs: 4  # 增加epochs，充分利用数据，提高GPU利用率
     ppo_max_token_len_per_gpu: 8192  # 减少每 GPU 最大 token 长度
     
     
@@ -125,7 +125,7 @@ actor_rollout_ref:
   
   # Reference model config
   ref:
-    strategy: fsdp
+    strategy: fsdp2
     
     # FSDP config
     fsdp_config:
@@ -161,17 +161,20 @@ actor_rollout_ref:
   rollout:
     name: vllm
     mode: async
-    gpu_memory_utilization: 0.3  # 降低显存利用率
+    gpu_memory_utilization: 0.4  # 降低显存利用率
     tensor_model_parallel_size: 4  # Actor 使用 4 张卡
     max_model_len: 2048  # 减少最大序列长度
+    enforce_eager: false
+    free_cache_engine: true
     actor_rollout_ref.actor.use_dynamic_bsz: false 
 
     # Sampling parameters
     temperature: 0.7
     top_p: 0.9
+    
     top_k: -1
     do_sample: true
-    n: 1  # number of responses per prompt
+    n: 1  # number of rollouts per update - 减少rollout频次，增加训练密度
     
     # Sequence lengths
     prompt_length: 2048
@@ -180,8 +183,6 @@ actor_rollout_ref:
     # Additional rollout settings
     dtype: bfloat16
     ignore_eos: false
-    enforce_eager: true
-    free_cache_engine: false
     load_format: dummy_dtensor
     layered_summon: false
     max_num_batched_tokens: 8192
@@ -200,7 +201,7 @@ actor_rollout_ref:
       
     # Agent loop configuration
     agent:
-      num_workers: 8
+      num_workers: 8  # 增加worker数量，提高并发度
       custom_async_server:
         path: null
         name: null
@@ -227,13 +228,10 @@ actor_rollout_ref:
     log_prob_use_dynamic_bsz: false
     log_prob_max_token_len_per_gpu: 32768
     
-    # # Engine kwargs
-    # engine_kwargs:
-    #   vllm:
-    #     swap_space: null
-    #     disable_mm_preprocessor_cache: false
-    #   sglang:
-    #     attention_backend: null
+    # Engine kwargs
+    engine_kwargs:
+      vllm:
+        attention_backend: null  # flashinfer, triton, flashmla, or null for default
 
 critic:
   model:
@@ -264,18 +262,18 @@ critic:
     lora_alpha: 16
     target_modules: all-linear
     
-  strategy: fsdp
+  strategy: fsdp2
     
   rollout:
     name: vllm
     mode: async
-    gpu_memory_utilization: 0.3  # 降低显存利用率
+    gpu_memory_utilization: 0.4  # 降低显存利用率
     tensor_model_parallel_size: 4  # Critic 使用另外 4 张卡
     max_model_len: 2048  # 减少最大序列长度
     
     # Same configuration as actor
     agent:
-      num_workers: 8
+      num_workers: 8  # 增加worker数量，提高并发度
       custom_async_server: null
       
     prompt_length: 2048
@@ -289,8 +287,8 @@ critic:
       
     free_cache_engine: false
 
-  # Number of rollouts per update
-  rollout_n: 1
+  # Number of rollouts per update - 应该引用actor的rollout.n
+  rollout_n: ${actor_rollout_ref.rollout.n}  # 引用actor的n值，保持一致
   
   # Optimizer config
   optim:
@@ -301,11 +299,11 @@ critic:
     total_training_steps: -1
     weight_decay: 0.01
   
-  # PPO settings - 优化显存使用
-  ppo_mini_batch_size: 8  # 增加 mini batch 大小（必须大于0）
+  # PPO settings - 优化批量训练效率
+  ppo_mini_batch_size: 16  # 增加批次大小，提高GPU利用率
   ppo_micro_batch_size: null
-  ppo_micro_batch_size_per_gpu: 1
-  ppo_epochs: 3
+  ppo_micro_batch_size_per_gpu: 1  # 保持micro batch大小
+  ppo_epochs: 4  # 增加epochs，充分利用数据，提高GPU利用率
   ppo_max_token_len_per_gpu: 8192  # 减少每 GPU 最大 token 长度
   
   # Forward settings
@@ -350,9 +348,9 @@ alg:
     actor_lr: 1e-6
     critic_lr: 5e-6
     
-  # Training parameters
-  num_mini_batches: 4
-  ppo_epochs: 3
+  # Training parameters - 优化批量训练
+  num_mini_batches: 8  # 增加mini batch数量
+  ppo_epochs: 2  # 减少epochs，提高效率
   
 # Training configuration
 trainer:
@@ -380,14 +378,14 @@ trainer:
   val_freq: 500
   save_freq: 1000
   
-  # Training iterations
-  total_epochs: 100
-  total_training_steps: 500
+  # Training iterations - 调整训练频率
+  total_epochs: 50  # 减少总epochs，但每次训练更多数据
+  total_training_steps: 50  # 减少训练步数，但提高每步效率
   test_freq: 10
   
   # Batch configuration - 优化批次大小
-  rollout_batch_size: 8  # rollout 批次大小
-  train_batch_size: 64    # 训练批次大小（应该 >= ppo_mini_batch_size）
+  rollout_batch_size: 128  # rollout 批次大小，与num_episodes匹配
+  train_batch_size: 1024   # 训练批次大小，增加批量效率
   
   # Additional trainer settings
   balance_batch: true
@@ -420,13 +418,18 @@ trainer:
   max_critic_ckpt_to_keep: null
   ray_wait_register_center_timeout: 300
   
-  # Miscellaneous
-  max_episode_steps: 20
+  # Miscellaneous - 调整episode长度
+  max_episode_steps: 100  # 增加episode步数，收集更多数据
   seed: 42
+  
+  # NPU profile configuration
+  npu_profile:
+    enable: false
+    options: []
 
 # Ray initialization
 ray_init:
-  num_cpus: 32
+  num_cpus: 120
 
 # 自定义奖励函数配置 - 必须在根级别，这样 get_custom_reward_fn 才能找到
 custom_reward_function:

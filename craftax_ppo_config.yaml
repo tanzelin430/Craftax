@@ -1,6 +1,6 @@
 # ========== Global Model Configuration ==========
 # 统一的模型路径配置，方便修改
-model_path: &model_path /fs-computility/mabasic/shared/models/Qwen3-0.6B
+model_path: &model_path /fs-computility/mabasic/shared/models/Qwen3-8B
 
 data:
   train_files: []
@@ -12,16 +12,16 @@ data:
     name: CraftaxDataset
     
   # Craftax specific settings - 增加批量大小
-  num_episodes: 32  # 增加到32个episode，提高批量效率
-  max_episode_steps: 3  # 适当减少单episode步数，平衡训练效率 
+  num_episodes: 128  # 增加到32个episode，提高批量效率
+  max_episode_steps: 100  # 适当减少单episode步数，平衡训练效率 
   
   # Standard data config
   prompt_key: prompt
   reward_fn_key: data_source
   max_prompt_length: 2048
   max_response_length: 512
-  train_batch_size: 32 # 增加批量大小，与num_episodes匹配
-  val_batch_size: 16
+  train_batch_size: 128  # 增加批量大小，与num_episodes匹配
+  val_batch_size: 128
   return_raw_input_ids: false
   return_raw_chat: false
   return_full_prompt: false
@@ -74,12 +74,14 @@ actor_rollout_ref:
     # PPO settings - 优化批量训练效率
     ppo_mini_batch_size: 16  # 增加批次大小，提高GPU利用率
     ppo_micro_batch_size: null
-    ppo_micro_batch_size_per_gpu: 1  # 保持micro batch大小
+    ppo_micro_batch_size_per_gpu: 2 # 保持micro batch大小
     ppo_epochs: 4  # 增加epochs，充分利用数据，提高GPU利用率
     ppo_max_token_len_per_gpu: 8192  # 减少每 GPU 最大 token 长度
     
     
     # Sequence parallelism
+
+
     ulysses_sequence_parallel_size: 1
     
     # Training settings
@@ -161,7 +163,7 @@ actor_rollout_ref:
   rollout:
     name: vllm
     mode: async
-    gpu_memory_utilization: 0.4  # 降低显存利用率
+    gpu_memory_utilization: 0.5  # 降低显存利用率
     tensor_model_parallel_size: 4  # Actor 使用 4 张卡
     max_model_len: 2048  # 减少最大序列长度
     enforce_eager: false
@@ -174,7 +176,7 @@ actor_rollout_ref:
     
     top_k: -1
     do_sample: true
-    n: 1  # number of rollouts per update - 减少rollout频次，增加训练密度
+    n: 4  # number of rollouts per update - 减少rollout频次，增加训练密度
     
     # Sequence lengths
     prompt_length: 2048
@@ -267,13 +269,13 @@ critic:
   rollout:
     name: vllm
     mode: async
-    gpu_memory_utilization: 0.4  # 降低显存利用率
+    gpu_memory_utilization: 0.5 # 降低显存利用率
     tensor_model_parallel_size: 4  # Critic 使用另外 4 张卡
     max_model_len: 2048  # 减少最大序列长度
     
     # Same configuration as actor
     agent:
-      num_workers: 8  # 增加worker数量，提高并发度
+      num_workers: 8  # 增加worker数量，提高并发度 
       custom_async_server: null
       
     prompt_length: 2048
@@ -302,7 +304,7 @@ critic:
   # PPO settings - 优化批量训练效率
   ppo_mini_batch_size: 16  # 增加批次大小，提高GPU利用率
   ppo_micro_batch_size: null
-  ppo_micro_batch_size_per_gpu: 1  # 保持micro batch大小
+  ppo_micro_batch_size_per_gpu: 2 # 保持micro batch大小
   ppo_epochs: 4  # 增加epochs，充分利用数据，提高GPU利用率
   ppo_max_token_len_per_gpu: 8192  # 减少每 GPU 最大 token 长度
   
@@ -380,12 +382,12 @@ trainer:
   
   # Training iterations - 调整训练频率
   total_epochs: 50  # 减少总epochs，但每次训练更多数据
-  total_training_steps: 50  # 减少训练步数，但提高每步效率
+  total_training_steps: 100  # 减少训练步数，但提高每步效率
   test_freq: 10
   
   # Batch configuration - 优化批次大小
-  rollout_batch_size: 128  # rollout 批次大小，与num_episodes匹配
-  train_batch_size: 1024   # 训练批次大小，增加批量效率
+  rollout_batch_size: 32  # rollout 批次大小，与num_episodes匹配
+  train_batch_size: ${data.train_batch_size}   # 训练批次大小
   
   # Additional trainer settings
   balance_batch: true

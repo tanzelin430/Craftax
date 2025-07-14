@@ -44,8 +44,8 @@ class CraftaxAgentLoop(AgentLoopBase):
     # Wandb reward tracking - 类级别共享
     _episode_cumulative_rewards = {}  # episode_id -> cumulative_reward
     _max_craftax_reward = 226.0  # Craftax最大奖励值
-    _num_envs = 128  # 从config获取并缓存
-    _rollout_n = 8  # 从config获取并缓存
+    _num_envs = 0  # 从config获取并缓存
+    _rollout_n = 0  # 从config获取并缓存
 
     def __init__(self, config: DictConfig, server_manager, tokenizer: AutoTokenizer):
         super().__init__(config, server_manager, tokenizer)
@@ -75,8 +75,11 @@ class CraftaxAgentLoop(AgentLoopBase):
 
         # 缓存Wandb相关的固定配置
         cls._num_envs = num_episodes
-        cls._rollout_n = getattr(config.actor_rollout_ref.rollout, "n", 8)
-
+        cls._rollout_n = getattr(config.actor_rollout_ref.rollout, "n")
+        # initialize info
+        print(
+            f"Agent Initialized with num_episodes: {num_episodes}, num_workers: {num_workers}, rollout_n: {cls._rollout_n}"
+        )
         # 获取当前进程信息
         import os
 
@@ -106,7 +109,9 @@ class CraftaxAgentLoop(AgentLoopBase):
 
     def _get_current_global_step(self) -> int:
         """获取当前rollout的global_steps"""
-        print(f"🔍 Current global_steps: {self.current_global_steps}")
+        print(
+            f"🔍 Current global_steps: {self.current_global_steps}, rollout_n: {self.__class__._rollout_n}"
+        )
         return self.current_global_steps
 
     @classmethod
@@ -258,11 +263,20 @@ class CraftaxAgentLoop(AgentLoopBase):
             self.__class__._episode_cumulative_rewards[episode_id] = 0.0
         self.__class__._episode_cumulative_rewards[episode_id] += reward
 
-        # 检查是否需要重置环境
-        if done:
+        # 检查是否需要重置环境 (环境返回done=True 或 超过最大步数限制)
+        max_steps_reached = (
+            env_data["episode_step_count"] >= self.__class__._max_episode_steps
+        )
+        # check global step
+        if done or max_steps_reached:
             cumulative_reward = self.__class__._episode_cumulative_rewards[episode_id]
+            end_reason = (
+                "environment done"
+                if done
+                else f"max steps ({self.__class__._max_episode_steps}) reached"
+            )
             print(
-                f"🏁 Episode {episode_id} finished after {env_data['episode_step_count']} steps, cumulative reward: {cumulative_reward:.3f}"
+                f"🏁 Episode {episode_id} finished after {env_data['episode_step_count']} steps ({end_reason}), cumulative reward: {cumulative_reward:.3f}"
             )
 
             # 计算reward占最大reward的比例

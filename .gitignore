@@ -175,8 +175,7 @@ tensorboard_log/
 checkpoints/
 
 # third party
-verl/
 OpenRLHF/
 ellm/
 .claude/
-Craftax_Baselines/
+# Craftax_Baselines/

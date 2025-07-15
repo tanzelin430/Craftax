@@ -347,7 +347,7 @@ class CraftaxQwenAgent:
 def main():
     """主函数"""
     # 模型路径
-    model_path = "/fs-computility/mabasic/shared/models/Qwen3-4B"
+    model_path = "/fs-computility/mabasic/shared/models/Qwen3-14B"
 
     # 检查模型路径是否存在
     if not os.path.exists(model_path):

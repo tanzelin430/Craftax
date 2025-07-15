@@ -290,7 +290,7 @@ critic:
     free_cache_engine: false
 
   # Number of rollouts per update - 应该引用actor的rollout.n
-  rollout_n: ${actor_rollout_ref.rollout.n}  # 引用actor的n值，保持一致
+  rollout_n: ${actor_rollout_ref.rollout.n}  # 引用actor的n值，保持一致 
   
   # Optimizer config
   optim:

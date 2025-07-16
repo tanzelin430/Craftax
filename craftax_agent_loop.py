@@ -47,12 +47,14 @@ class CraftaxAgentLoop(AgentLoopBase):
     _num_envs = 0  # 从config获取并缓存
     _rollout_n = 0  # 从config获取并缓存
 
-    def __init__(self, config: DictConfig, server_manager, tokenizer: AutoTokenizer):
-        super().__init__(config, server_manager, tokenizer)
+    def __init__(self, trainer_config, server_manager, tokenizer: AutoTokenizer):
+        # 直接调用父类的__init__，父类会处理trainer_config.config的访问
+        super().__init__(trainer_config, server_manager, tokenizer)
+        self.trainer_config = trainer_config  # 存储trainer配置
 
         # 从配置中获取序列长度限制
-        self.prompt_length = config.actor_rollout_ref.rollout.prompt_length
-        self.response_length = config.actor_rollout_ref.rollout.response_length
+        self.prompt_length = self.config.actor_rollout_ref.rollout.prompt_length
+        self.response_length = self.config.actor_rollout_ref.rollout.response_length
 
         # 环境现在通过 messages 中的 episode_id 来标识，不需要实例级别的标识
         self.current_global_steps = 0  # 存储当前rollout的global_steps

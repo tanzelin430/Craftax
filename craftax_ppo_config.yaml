@@ -1,6 +1,6 @@
 # ========== Global Model Configuration ==========
 # 统一的模型路径配置，方便修改
-model_path: &model_path /fs-computility/mabasic/shared/models/Qwen3-8B
+model_path: &model_path /fs-computility/mabasic/shared/models/Qwen3-14B
 
 data:
   train_files: []
@@ -12,15 +12,15 @@ data:
     name: CraftaxDataset
     
   # Craftax specific settings - 增加批量大小
-  num_episodes: 128  # 增加到32个episode，提高批量效率
+  num_episodes: 256  # 增加到256，利用更多GPU
   max_episode_steps: 100  # 适当减少单episode步数，平衡训练效率 
   
   # Standard data config
   prompt_key: prompt
   reward_fn_key: data_source
   max_prompt_length: 2048
-  max_response_length: 512
-  train_batch_size: 128  # 增加批量大小，与num_episodes匹配
+  max_response_length: 1024
+  train_batch_size: 256  # 增加批量大小，与num_episodes匹配
   val_batch_size: 128
   return_raw_input_ids: false
   return_raw_chat: false
@@ -72,9 +72,9 @@ actor_rollout_ref:
       forward_prefetch: true  # 启用前向预取
     
     # PPO settings - 优化批量训练效率
-    ppo_mini_batch_size: 16  # 增加批次大小，提高GPU利用率
+    ppo_mini_batch_size: 32  # 增加批次大小，提高GPU利用率
     ppo_micro_batch_size: null
-    ppo_micro_batch_size_per_gpu: 2 # 保持micro batch大小
+    ppo_micro_batch_size_per_gpu: 4 # 保持micro batch大小
     ppo_epochs: 4  # 增加epochs，充分利用数据，提高GPU利用率
     ppo_max_token_len_per_gpu: 8192  # 减少每 GPU 最大 token 长度
     
@@ -163,8 +163,8 @@ actor_rollout_ref:
   rollout:
     name: vllm
     mode: async
-    gpu_memory_utilization: 0.5  # 降低显存利用率
-    tensor_model_parallel_size: 4  # Actor 使用 4 张卡
+    gpu_memory_utilization: 0.5  # 设置显存利用率
+    tensor_model_parallel_size: 16  # Actor 使用 8 张卡，14B模型需要更多卡
     max_model_len: 2048  # 减少最大序列长度
     enforce_eager: false
     free_cache_engine: true
@@ -203,7 +203,7 @@ actor_rollout_ref:
       
     # Agent loop configuration
     agent:
-      num_workers: 8  # 增加worker数量，提高并发度
+      num_workers: 16  # 从8增加到16，利用更多资源
       custom_async_server:
         path: null
         name: null
@@ -269,13 +269,13 @@ critic:
   rollout:
     name: vllm
     mode: async
-    gpu_memory_utilization: 0.5 # 降低显存利用率
-    tensor_model_parallel_size: 4  # Critic 使用另外 4 张卡
+    gpu_memory_utilization: 0.5 # 设置显存利用率
+    tensor_model_parallel_size: 16  # Critic 使用 8 张卡，14B模型需要更多卡
     max_model_len: 2048  # 减少最大序列长度
     
     # Same configuration as actor
     agent:
-      num_workers: 8  # 增加worker数量，提高并发度 
+      num_workers: 16  # 从8增加到16，利用更多资源 
       custom_async_server: null
       
     prompt_length: 2048
@@ -302,9 +302,9 @@ critic:
     weight_decay: 0.01
   
   # PPO settings - 优化批量训练效率
-  ppo_mini_batch_size: 16  # 增加批次大小，提高GPU利用率
+  ppo_mini_batch_size: 16  # 保持不变
   ppo_micro_batch_size: null
-  ppo_micro_batch_size_per_gpu: 2 # 保持micro batch大小
+  ppo_micro_batch_size_per_gpu: 2 # 保持不变
   ppo_epochs: 4  # 增加epochs，充分利用数据，提高GPU利用率
   ppo_max_token_len_per_gpu: 8192  # 减少每 GPU 最大 token 长度
   
@@ -358,10 +358,10 @@ alg:
 trainer:
   default_hdfs_dir: null
   project_name: craftax_ppo
-  experiment_name: qwen3_craftax_v1_4B
+  experiment_name: qwen3_craftax_v1_14B
   
-  # GPU configuration - 4 GPUs on 1 node (留2块给JAX环境)
-  nnodes: 1
+  # GPU configuration - 4 nodes with 8 GPUs each (total 32 GPUs)
+  nnodes: 2
   n_gpus_per_node: 8
   device: cuda
   
@@ -415,7 +415,7 @@ trainer:
   val_only: false
   critic_warmup: 0
   del_local_ckpt_after_load: false
-  default_local_dir: checkpoints/craftax_ppo/qwen3_craftax_v1_4B
+  default_local_dir: checkpoints/craftax_ppo/qwen3_craftax_v1_14B
   max_actor_ckpt_to_keep: null
   max_critic_ckpt_to_keep: null
   ray_wait_register_center_timeout: 300

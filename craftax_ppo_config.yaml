@@ -8,12 +8,12 @@ data:
   
   # Custom dataset class
   custom_cls:
-    path: craftax_dataset.py
+    path: /root/work/Craftax/craftax_dataset.py
     name: CraftaxDataset
     
   # Craftax specific settings - 增加批量大小
   num_episodes: 256  # 增加到256，利用更多GPU
-  max_episode_steps: 100  # 适当减少单episode步数，平衡训练效率 
+  max_episode_steps: 10000  # 适当减少单episode步数，平衡训练效率 
   
   # Standard data config
   prompt_key: prompt
@@ -164,7 +164,7 @@ actor_rollout_ref:
     name: vllm
     mode: async
     gpu_memory_utilization: 0.5  # 设置显存利用率
-    tensor_model_parallel_size: 16  # Actor 使用 8 张卡，14B模型需要更多卡
+    tensor_model_parallel_size: 8  # Actor 使用 8 张卡，14B模型需要更多卡
     max_model_len: 2048  # 减少最大序列长度
     enforce_eager: false
     free_cache_engine: true
@@ -270,7 +270,7 @@ critic:
     name: vllm
     mode: async
     gpu_memory_utilization: 0.5 # 设置显存利用率
-    tensor_model_parallel_size: 16  # Critic 使用 8 张卡，14B模型需要更多卡
+    tensor_model_parallel_size: 8  # Critic 使用 8 张卡，14B模型需要更多卡
     max_model_len: 2048  # 减少最大序列长度
     
     # Same configuration as actor
@@ -358,11 +358,11 @@ alg:
 trainer:
   default_hdfs_dir: null
   project_name: craftax_ppo
-  experiment_name: qwen3_craftax_v1_14B
+  experiment_name: qwen3_craftax_v1_0.6B
   
   # GPU configuration - 4 nodes with 8 GPUs each (total 32 GPUs)
-  nnodes: 2
-  n_gpus_per_node: 8
+  nnodes: 1
+  n_gpus_per_node: 2
   device: cuda
   
   # Logging
@@ -381,8 +381,8 @@ trainer:
   save_freq: 1000
   
   # Training iterations - 调整训练频率
-  total_epochs: 50  # 减少总epochs，但每次训练更多数据
   total_training_steps: 100  # 减少训练步数，但提高每步效率
+  total_epochs: ${trainer.total_training_steps}
   test_freq: 10
   
   # Batch configuration - 优化批次大小

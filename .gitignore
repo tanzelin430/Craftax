@@ -178,4 +178,9 @@ checkpoints/
 OpenRLHF/
 ellm/
 .claude/
-# Craftax_Baselines/
+Craftax_Baselines/
+
+# others
+params.txt
+*.whl
+craftax_ppo_config_test.yaml

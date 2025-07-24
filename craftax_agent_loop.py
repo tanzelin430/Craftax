@@ -41,16 +41,26 @@ class CraftaxAgentLoop(AgentLoopBase):
     _assigned_worker_id = None  # 当前worker分配到的ID
     _envs_per_worker = 4  # 每个worker管理的环境数量，默认值
 
+    # 并发保护 - 每个环境一个锁
+    _env_locks = {}  # env_id -> asyncio.Lock
+
     # Wandb reward tracking - 类级别共享
     _episode_cumulative_rewards = {}  # episode_id -> cumulative_reward
     _max_craftax_reward = 226.0  # Craftax最大奖励值
     _num_envs = 0  # 从config获取并缓存
     _rollout_n = 0  # 从config获取并缓存
 
-    def __init__(self, trainer_config, server_manager, tokenizer: AutoTokenizer):
+    def __init__(
+        self,
+        trainer_config,
+        server_manager,
+        tokenizer: AutoTokenizer,
+        wandb_run_info: dict = None,
+    ):
         # 直接调用父类的__init__，父类会处理trainer_config.config的访问
         super().__init__(trainer_config, server_manager, tokenizer)
         self.trainer_config = trainer_config  # 存储trainer配置
+        self.wandb_run_info = wandb_run_info  # 存储从主进程传递过来的 wandb 信息
 
         # 从配置中获取序列长度限制
         self.prompt_length = self.config.actor_rollout_ref.rollout.prompt_length
@@ -58,6 +68,53 @@ class CraftaxAgentLoop(AgentLoopBase):
 
         # 环境现在通过 messages 中的 episode_id 来标识，不需要实例级别的标识
         self.current_global_steps = 0  # 存储当前rollout的global_steps
+
+        # 严格要求连接到主进程的 wandb run
+        self._connect_to_main_wandb_run()
+
+    def _connect_to_main_wandb_run(self):
+        """严格连接到主进程的 wandb run，如果失败则报错"""
+        import os
+
+        worker_pid = os.getpid()
+
+        if self.wandb_run_info is None:
+            raise RuntimeError(
+                f"❌ Worker {worker_pid}: No wandb_run_info received from main process!\n"
+                f"   CraftaxAgentLoop requires wandb run information for metrics logging.\n"
+                f"   Make sure the main process passes wandb_run_info to AgentLoopWorker."
+            )
+
+        try:
+            import wandb
+
+            if wandb.run is None:
+                # 连接到主进程的 wandb run
+                wandb.init(
+                    project=self.wandb_run_info["project"],
+                    id=self.wandb_run_info["id"],
+                    entity=self.wandb_run_info.get("entity"),
+                    resume="allow",
+                    reinit=True,
+                )
+                print(f"✅ Worker {worker_pid} connected to main wandb run:")
+                print(f"   Project: {self.wandb_run_info['project']}")
+                print(f"   Run ID: {self.wandb_run_info['id']}")
+                print(f"   Name: {self.wandb_run_info.get('name', 'N/A')}")
+            else:
+                print(
+                    f"✅ Worker {worker_pid}: Wandb run already available: {wandb.run.id}"
+                )
+
+        except ImportError:
+            raise RuntimeError(
+                f"❌ Worker {worker_pid}: wandb is not available but required for CraftaxAgentLoop"
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"❌ Worker {worker_pid}: Failed to connect to main wandb run: {e}\n"
+                f"   wandb_run_info: {self.wandb_run_info}"
+            )
 
     @classmethod
     def init_class(cls, config: DictConfig, tokenizer: AutoTokenizer):
@@ -67,7 +124,7 @@ class CraftaxAgentLoop(AgentLoopBase):
 
         cls._class_initialized = True
         # 从配置中读取最大步数，默认 100
-        cls._max_episode_steps = getattr(config, "max_episode_steps", 100)
+        cls._max_episode_steps = getattr(config.data, "max_episode_steps", 100)
 
         # 获取配置信息并缓存为类变量
         num_episodes = getattr(config.data, "num_episodes", 32)  # 总环境数
@@ -136,7 +193,10 @@ class CraftaxAgentLoop(AgentLoopBase):
             "episode_id": f"ep_{env_id}_{seed}",
         }
 
-        print(f"🎮 Created environment {env_id} with seed {seed}")
+        # 为每个环境创建异步锁
+        cls._env_locks[env_id] = asyncio.Lock()
+
+        print(f"🎮 Created environment {env_id} with seed {seed} and async lock")
 
     @classmethod
     def _get_environment(cls, env_id: str):
@@ -191,9 +251,10 @@ class CraftaxAgentLoop(AgentLoopBase):
         Returns:
             AgentLoopOutput: 单步交互数据
         """
-        # 从trajectory获取global_steps
+        # 从trajectory获取global_steps和rollout_n
         if trajectory and "step" in trajectory:
             self.current_global_steps = trajectory["step"]
+
         start_time = time.time()
         request_id = uuid4().hex
 
@@ -203,6 +264,7 @@ class CraftaxAgentLoop(AgentLoopBase):
             initial_message = messages[0]
             if isinstance(initial_message, dict):
                 episode_id = initial_message.get("episode_id", 0)
+                print(f"🔍MESSAGE Episode ID GET: {episode_id}")
 
         # 将全局episode_id映射到当前实例的环境中的一个
         local_env_index = (
@@ -210,131 +272,186 @@ class CraftaxAgentLoop(AgentLoopBase):
         )  # 动态映射到 0, 1, ..., envs_per_worker-1
         env_id = f"env_{local_env_index}"
 
-        # 2. 获取对应的持久化环境
-        env_data = self._get_environment(env_id)
+        # 2. 使用异步锁保护整个环境访问过程
+        async with self.__class__._env_locks[env_id]:
+            print(f"🔒 Acquired lock for {env_id} (episode_id: {episode_id})")
 
-        # 3. 检查是否需要开始新 episode（当前观察为 None 表示上个 episode 结束了）
-        if env_data["current_obs"] is None:
-            self._reset_environment(env_id)
-            env_data = self._get_environment(env_id)  # 重新获取更新后的数据
+            # 获取对应的持久化环境
+            env_data = self._get_environment(env_id)
 
-        # 3. 获取当前环境观察
-        wrapped_obs = env_data["env_wrapper"].wrap_observation(env_data["current_obs"])
+            # 3. 检查是否需要开始新 episode（当前观察为 None 表示上个 episode 结束了）
+            if env_data["current_obs"] is None or env_data["current_state"] is None:
+                print(
+                    f"🔄 Resetting environment {env_id} (was episode: {env_data['episode_id']}, step: {env_data['episode_step_count']})"
+                )
+                self._reset_environment(env_id)
+                env_data = self._get_environment(env_id)  # 重新获取更新后的数据
 
-        # 4. 生成 LLM 响应
-        prompt_list = [{"role": "user", "content": wrapped_obs}]
-        formatted_text = self.tokenizer.apply_chat_template(
-            prompt_list,
-            tokenize=False,
-            add_generation_prompt=True,
-            enable_thinking=False,  # 训练效率考虑，禁用思考模式
-        )
-
-        prompt_ids = self.tokenizer.encode(formatted_text, add_special_tokens=True)
-
-        # LLM 生成响应
-        response_ids = await self.server_manager.generate(
-            request_id=f"{request_id}_{env_data['episode_id']}_step{env_data['episode_step_count']}",
-            prompt_ids=prompt_ids,
-            sampling_params=sampling_params,
-        )
-
-        # 解码响应
-        response_text = self.tokenizer.decode(response_ids, skip_special_tokens=True)
-
-        # 5. 执行环境交互
-        try:
-            action_id = env_data["env_wrapper"].parse_llm_response(response_text)
-        except Exception as e:
-            print(f"⚠️ Action parsing failed: {e}, using default DO action")
-            action_id = 5  # 默认 DO 动作
-
-        # 执行动作并更新持久化的环境状态
-        new_obs, new_state, reward, done, _ = env_data["env_wrapper"].step(
-            env_data["current_state"], action_id
-        )
-
-        # 更新持久化的环境状态
-        env_data["current_obs"] = new_obs
-        env_data["current_state"] = new_state
-        env_data["episode_step_count"] += 1
-
-        # 更新累积奖励
-        episode_id = env_data["episode_id"]
-        if episode_id not in self.__class__._episode_cumulative_rewards:
-            self.__class__._episode_cumulative_rewards[episode_id] = 0.0
-        self.__class__._episode_cumulative_rewards[episode_id] += reward
-
-        # 检查是否需要重置环境 (环境返回done=True 或 超过最大步数限制)
-        max_steps_reached = (
-            env_data["episode_step_count"] >= self.__class__._max_episode_steps
-        )
-        # check global step
-        if done or max_steps_reached:
-            cumulative_reward = self.__class__._episode_cumulative_rewards[episode_id]
-            end_reason = (
-                "environment done"
-                if done
-                else f"max steps ({self.__class__._max_episode_steps}) reached"
-            )
-            print(
-                f"🏁 Episode {episode_id} finished after {env_data['episode_step_count']} steps ({end_reason}), cumulative reward: {cumulative_reward:.3f}"
+            # 4. 获取当前环境观察
+            wrapped_obs = env_data["env_wrapper"].wrap_observation(
+                env_data["current_obs"]
             )
 
-            # 计算reward占最大reward的比例
-            reward_percentage = (
-                cumulative_reward / self.__class__._max_craftax_reward * 100.0
+            # 4. 生成 LLM 响应
+            prompt_list = [{"role": "user", "content": wrapped_obs}]
+            formatted_text = self.tokenizer.apply_chat_template(
+                prompt_list,
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=False,  # 训练效率考虑，禁用思考模式
             )
 
-            # 直接记录到wandb
+            prompt_ids = self.tokenizer.encode(formatted_text, add_special_tokens=True)
+
+            # LLM 生成响应
+            response_ids = await self.server_manager.generate(
+                request_id=f"{request_id}_{env_data['episode_id']}_step{env_data['episode_step_count']}",
+                prompt_ids=prompt_ids,
+                sampling_params=sampling_params,
+            )
+
+            # 解码响应
+            response_text = self.tokenizer.decode(
+                response_ids, skip_special_tokens=True
+            )
+
+            # 5. 执行环境交互
+            try:
+                action_id = env_data["env_wrapper"].parse_llm_response(response_text)
+            except Exception as e:
+                print(f"⚠️ Action parsing failed: {e}, using default DO action")
+                action_id = 5  # 默认 DO 动作
+
+            # 执行动作并更新持久化的环境状态
+            # 检查状态是否为空
+            if env_data["current_state"] is None:
+                print(f"💥 FATAL: current_state is None before step!")
+                print(f"🔍 env_data contents:")
+                for key, value in env_data.items():
+                    if key == "env_wrapper":
+                        print(f"   {key}: <CraftaxLLMWrapper object>")
+                    else:
+                        print(f"   {key}: {value}")
+                print(f"🔍 env_id: {env_id}")
+                print(f"🔍 episode_id: {episode_id}")
+                print(f"🔍 local_env_index: {episode_id % self._envs_per_worker}")
+                raise RuntimeError("current_state is None - cannot execute step")
+
+            new_obs, new_state, reward, done, _ = env_data["env_wrapper"].step(
+                env_data["current_state"], action_id
+            )
+
+            # 更新持久化的环境状态
+            env_data["current_obs"] = new_obs
+            env_data["current_state"] = new_state
+            env_data["episode_step_count"] += 1
+
+            # 更新累积奖励
+            raw_episode_id = episode_id
+            episode_id = env_data["episode_id"]
+            if episode_id not in self.__class__._episode_cumulative_rewards:
+                self.__class__._episode_cumulative_rewards[episode_id] = 0.0
+            self.__class__._episode_cumulative_rewards[episode_id] += reward
+
+            # 实时记录累积奖励到wandb
+            current_cumulative_reward = self.__class__._episode_cumulative_rewards[
+                episode_id
+            ]
+
+            # 计算全局环境交互步数作为x轴
+            current_global_step = getattr(self, "current_global_steps", 0)
+            global_env_steps = (
+                current_global_step
+                * self.__class__._rollout_n
+                * self.__class__._num_envs
+            )
+
+            # 记录到wandb
             try:
                 import wandb
 
                 if wandb.run is not None:
-                    # 尝试从Verl训练框架获取当前global_step
-                    current_global_step = self._get_current_global_step()
-
-                    # 计算全局环境交互步数: (update_step * rollout_n + rollout_step) * num_envs
-                    # 简化版本：假设rollout_step=0（批次开始）
-                    global_env_steps = (
-                        current_global_step
-                        * self.__class__._rollout_n
-                        * self.__class__._num_envs
-                    )
-
+                    metric_name = f"craftax/realtime_cumulative_reward/{raw_episode_id}"
                     wandb.log(
                         {
-                            "craftax/reward_percentage": reward_percentage,
-                            "craftax/cumulative_reward": cumulative_reward,
+                            metric_name: current_cumulative_reward,
                         },
                         step=global_env_steps,
                     )
-                    print(
-                        f"📊 Wandb logged: Global step {current_global_step}, Env steps {global_env_steps}"
-                    )
-                    print(
-                        f"    Reward: {cumulative_reward:.3f}, Percentage: {reward_percentage:.2f}%"
-                    )
+                    # print(f"✅ Wandb logged realtime reward: Global step {current_global_step}, Env steps {global_env_steps}")
                 else:
                     print(
-                        f"📊 No wandb run active, Episode {episode_id}, Reward: {cumulative_reward:.3f}, Percentage: {reward_percentage:.2f}%"
+                        f"⚠️ Wandb run not available for real-time logging (step {global_env_steps})"
                     )
             except ImportError:
+                print("⚠️ Wandb not available for real-time logging")
+                pass
+
+            # 检查是否需要重置环境 (环境返回done=True 或 超过最大步数限制)
+            if done:
+                cumulative_reward = self.__class__._episode_cumulative_rewards[
+                    episode_id
+                ]
                 print(
-                    f"📊 Wandb not available, Episode {episode_id}, Reward: {cumulative_reward:.3f}, Percentage: {reward_percentage:.2f}%"
+                    f"🏁 Episode {episode_id} finished after {env_data['episode_step_count']} steps, cumulative reward: {cumulative_reward:.3f}"
                 )
 
-            # 清理已完成episode的奖励记录
-            del self.__class__._episode_cumulative_rewards[episode_id]
+                # 计算reward占最大reward的比例
+                reward_percentage = (
+                    cumulative_reward / self.__class__._max_craftax_reward * 100.0
+                )
 
-            # 环境结束，标记需要重置（但不销毁环境）
-            env_data["current_obs"] = None
-            env_data["current_state"] = None
+                # 直接记录到wandb
+                try:
+                    import wandb
 
-        # 5. 在 response 后面加上当前步骤的奖励信息
-        reward_info = f" [Reward: {reward:.3f}]"
-        reward_tokens = self.tokenizer.encode(reward_info, add_special_tokens=False)
-        response_ids.extend(reward_tokens)
+                    if wandb.run is not None:
+                        # 尝试从Verl训练框架获取当前global_step
+                        current_global_step = self._get_current_global_step()
+
+                        # 计算全局环境交互步数: (update_step * rollout_n + rollout_step) * num_envs
+                        # 简化版本：假设rollout_step=0（批次开始）
+                        global_env_steps = (
+                            current_global_step
+                            * self.__class__._rollout_n
+                            * self.__class__._num_envs
+                        )
+
+                        wandb.log(
+                            {
+                                "craftax/reward_percentage": reward_percentage,
+                                "craftax/cumulative_reward": cumulative_reward,
+                            },
+                            step=global_env_steps,
+                        )
+                        print(
+                            f"📊 Wandb logged: Global step {current_global_step}, Env steps {global_env_steps}"
+                        )
+                        print(
+                            f"    Reward: {cumulative_reward:.3f}, Percentage: {reward_percentage:.2f}%"
+                        )
+                    else:
+                        print(
+                            f"📊 No wandb run active, Episode {episode_id}, Reward: {cumulative_reward:.3f}, Percentage: {reward_percentage:.2f}%"
+                        )
+                except ImportError:
+                    print(
+                        f"📊 Wandb not available, Episode {episode_id}, Reward: {cumulative_reward:.3f}, Percentage: {reward_percentage:.2f}%"
+                    )
+
+                # 清理已完成episode的奖励记录
+                del self.__class__._episode_cumulative_rewards[episode_id]
+
+                # 环境结束，标记需要重置（但不销毁环境）
+                env_data["current_obs"] = None
+                env_data["current_state"] = None
+
+            # 5. 在 response 后面加上当前步骤的奖励信息
+            reward_info = f" [Reward: {reward:.3f}]"
+            reward_tokens = self.tokenizer.encode(reward_info, add_special_tokens=False)
+            response_ids.extend(reward_tokens)
+
+            print(f"🔓 Released lock for {env_id}")
 
         # 创建响应掩码
         response_mask = [1] * len(response_ids)

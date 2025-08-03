@@ -184,3 +184,4 @@ Craftax_Baselines/
 params.txt
 *.whl
 craftax_ppo_config_test.yaml
+start.sh

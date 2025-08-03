@@ -182,8 +182,7 @@ class CraftaxLLMWrapper:
         prompt += "\n\n"
 
         # 最终指令
-        prompt += "Choose your next action in format of '[Reasoning] Action: {action_name} (ID: {action_id})'.\n"
-
+        prompt += "After a short reasoning process,show your next action in format of '[The reasoning process] Action: {action_name} (ID: {action_id})' .\n"
         return prompt
 
     def parse_llm_response(self, response: str) -> int:

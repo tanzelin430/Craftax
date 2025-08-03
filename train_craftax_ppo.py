@@ -19,7 +19,6 @@ sys.path.append("/root/work/Craftax")
 def main():
     """主训练函数"""
     # 限制Verl只使用GPU 0-5，留GPU 6-7给JAX环境
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
 
     # 1. 加载配置
     config_path = "/root/work/Craftax/craftax_ppo_config.yaml"
@@ -31,17 +30,37 @@ def main():
 
     # 2. 初始化 Ray
     if not ray.is_initialized():
-        ray.init(
-            runtime_env={
-                "env_vars": {
-                    "TOKENIZERS_PARALLELISM": "true",
-                    "NCCL_DEBUG": "WARN",
-                    "VLLM_LOGGING_LEVEL": "INFO",
-                    "VLLM_USE_V1": "1",
-                }
-            },
-            num_cpus=config.ray_init.num_cpus,
-        )
+        # Check if we're connecting to an existing cluster
+        ray_address = os.environ.get("RAY_ADDRESS")
+        if ray_address:
+            # When connecting to existing cluster, don't specify num_cpus/num_gpus
+            ray.init(
+                address=ray_address,
+                runtime_env={
+                    "env_vars": {
+                        "TOKENIZERS_PARALLELISM": "true",
+                        "NCCL_DEBUG": "WARN",
+                        "VLLM_LOGGING_LEVEL": "INFO",
+                        "VLLM_USE_V1": "1",
+                    }
+                },
+            )
+        else:
+            # Starting new local cluster, can specify resources
+            ray.init(
+                runtime_env={
+                    "env_vars": {
+                        "TOKENIZERS_PARALLELISM": "true",
+                        "NCCL_DEBUG": "WARN",
+                        "VLLM_LOGGING_LEVEL": "INFO",
+                        "VLLM_USE_V1": "1",
+                        "https_proxy": os.environ.get("https_proxy", ""),
+                        "http_proxy": os.environ.get("http_proxy", ""),
+                        "WANDB_API_KEY": os.environ.get("WANDB_API_KEY", ""),
+                    }
+                },
+                num_cpus=config.ray_init.num_cpus,
+            )
 
     # 3. 创建并运行远程任务
     runner = TaskRunner.remote()

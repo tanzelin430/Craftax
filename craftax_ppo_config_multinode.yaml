@@ -1,6 +1,6 @@
 # ========== Global Model Configuration ==========
 # 统一的模型路径配置，方便修改
-model_path: &model_path /fs-computility/mabasic/shared/models/Qwen3-0.6B
+model_path: &model_path /fs-computility/mabasic/shared/models/Qwen3-14B
 
 data:
   train_files: []
@@ -12,21 +12,21 @@ data:
     name: CraftaxDataset
     
   # Craftax specific settings - 增加批量大小
-  num_episodes: 128 # 增加到256，利用更多GPU
-  max_episode_steps: 100000
+  num_episodes: 256  # 增加到256，利用更多GPU
+  max_episode_steps: 100000  # 适当减少单episode步数，平衡训练效率 
   
   # Standard data config
   prompt_key: prompt
   reward_fn_key: data_source
   max_prompt_length: 2048
   max_response_length: 1024
-  train_batch_size: ${data.num_episodes} # 增加批量大小，与num_episodes匹配
-  val_batch_size: 8
+  train_batch_size: 256  # 增加批量大小，与num_episodes匹配
+  val_batch_size: 256
   return_raw_input_ids: false
   return_raw_chat: false
   return_full_prompt: false
   shuffle: true
-  dataloader_num_workers: 4
+  dataloader_num_workers: 16
   validation_shuffle: false
   filter_overlong_prompts: false
   filter_overlong_prompts_workers: 1
@@ -72,10 +72,10 @@ actor_rollout_ref:
       forward_prefetch: true  # 启用前向预取
     
     # PPO settings - 优化批量训练效率
-    ppo_mini_batch_size: 8  # 增加批次大小，提高GPU利用率
+    ppo_mini_batch_size: 64  # 增加批次大小，提高GPU利用率
     ppo_micro_batch_size: null
     ppo_micro_batch_size_per_gpu: 4 # 保持micro batch大小
-    ppo_epochs: 1  # 增加epochs，充分利用数据，提高GPU利用率
+    ppo_epochs: 4  # 增加epochs，充分利用数据，提高GPU利用率
     ppo_max_token_len_per_gpu: 8192  # 减少每 GPU 最大 token 长度
     
     
@@ -142,7 +142,7 @@ actor_rollout_ref:
     
     # Log prob settings
     log_prob_micro_batch_size: null
-    log_prob_micro_batch_size_per_gpu: 1
+    log_prob_micro_batch_size_per_gpu: 16
     log_prob_use_dynamic_bsz: false
     log_prob_max_token_len_per_gpu: 32768
     
@@ -164,8 +164,8 @@ actor_rollout_ref:
     name: vllm
     mode: async
     gpu_memory_utilization: 0.5  # 设置显存利用率
-    tensor_model_parallel_size: 2  # Actor 使用 8 张卡，14B模型需要更多卡
-    max_model_len: 2048  # 减少最大序列长度
+    tensor_model_parallel_size: 4  # 优化tp大小，提高资源利用率
+    max_model_len: 4096  # 减少最大序列长度
     enforce_eager: false
     free_cache_engine: true
     actor_rollout_ref.actor.use_dynamic_bsz: false 
@@ -180,7 +180,7 @@ actor_rollout_ref:
     
     # Sequence lengths
     prompt_length: 2048
-    response_length: 512
+    response_length: 1024
     
     # Additional rollout settings
     dtype: bfloat16
@@ -203,7 +203,7 @@ actor_rollout_ref:
       
     # Agent loop configuration
     agent:
-      num_workers: 4 # 从8增加到16，利用更多资源
+      num_workers: 32  # 从8增加到16，利用更多资源
       custom_async_server:
         path: null
         name: null
@@ -215,7 +215,7 @@ actor_rollout_ref:
       tool_config_path: null
       max_user_turns: null
       max_parallel_calls: 1
-      max_tool_response_length: 1024
+      max_tool_response_length: 256
       tool_response_truncate_side: middle
       interaction_config_path: null
       completion_callback: null
@@ -270,16 +270,16 @@ critic:
     name: vllm
     mode: async
     gpu_memory_utilization: 0.5 # 设置显存利用率
-    tensor_model_parallel_size: 2  # Critic 使用 8 张卡，14B模型需要更多卡
-    max_model_len: 2048  # 减少最大序列长度
+    tensor_model_parallel_size: 4  # 优化tp大小，提高资源利用率
+    max_model_len: 4096  # 减少最大序列长度
     
     # Same configuration as actor
     agent:
-      num_workers: 4  # 从8增加到16，利用更多资源 
+      num_workers: 16  # 从8增加到16，利用更多资源 
       custom_async_server: null
       
     prompt_length: 2048
-    response_length: 1024
+    response_length: 512
     temperature: 0.7
     top_p: 0.9
     
@@ -302,10 +302,10 @@ critic:
     weight_decay: 0.01
   
   # PPO settings - 优化批量训练效率
-  ppo_mini_batch_size: 8 # 保持不变
+  ppo_mini_batch_size: 64  # 保持不变
   ppo_micro_batch_size: null
   ppo_micro_batch_size_per_gpu: 4 # 保持不变
-  ppo_epochs: 1 # 增加epochs，充分利用数据，提高GPU利用率
+  ppo_epochs: 4  # 增加epochs，充分利用数据，提高GPU利用率
   ppo_max_token_len_per_gpu: 8192  # 减少每 GPU 最大 token 长度
   
   # Forward settings
@@ -358,11 +358,11 @@ alg:
 trainer:
   default_hdfs_dir: null
   project_name: craftax_ppo
-  experiment_name: qwen3_craftax_v1_0.6B
+  experiment_name: qwen3_craftax_v1_14B
   
   # GPU configuration - 4 nodes with 8 GPUs each (total 32 GPUs)
-  nnodes: 1
-  n_gpus_per_node: 2
+  nnodes: 2
+  n_gpus_per_node: 8
   device: cuda
   
   # Logging
@@ -370,10 +370,8 @@ trainer:
     - console
     - wandb  # 添加 WandB 实验追踪
   
-  # WandB proxy configuration
   wandb_proxy: https://tanzelin.p:PmTlFq9JezzfrabSXBuJaqpHFNMVRmZ7WHVQmGNCRIs41S92dpDuKIdyroln@volc-proxy.pjlab.org.cn:13128/
   
-    
   # Checkpointing
   checkpoint:
     interval: 1000
@@ -384,12 +382,11 @@ trainer:
   save_freq: 1000
   
   # Training iterations - 调整训练频率
-    # 减少总epochs，但每次训练更多数据
-  total_training_steps: 100000  # 减少训练步数，但提高每步效率
+  total_training_steps: 50000  # 减少训练步数，但提高每步效率
   total_epochs: ${.total_training_steps}
   test_freq: 10
   
-  # Batch configuration - 优化批次大小  
+  # Batch configuration - 优化批次大小
   rollout_batch_size: ${data.train_batch_size}  # rollout 批次大小，与train_batch_size匹配
   train_batch_size: ${data.train_batch_size}   # 训练批次大小
   
@@ -425,7 +422,7 @@ trainer:
   ray_wait_register_center_timeout: 300
   
   # Miscellaneous - 调整episode长度
-  max_episode_steps: 100  # 增加episode步数，收集更多数据
+  max_episode_steps: 100000  # 增加episode步数，收集更多数据
   seed: 42
   
   # NPU profile configuration
@@ -449,7 +446,7 @@ reward_model:
   launch_reward_fn_async: true
   use_dynamic_bsz: false
   micro_batch_size: null
-  micro_batch_size_per_gpu: 1
+  micro_batch_size_per_gpu: 16
   
   # Sandbox fusion 配置 - 设置为 null 因为我们不使用 sandbox
   sandbox_fusion: null

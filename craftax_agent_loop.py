@@ -90,12 +90,26 @@ class CraftaxAgentLoop(AgentLoopBase):
 
             if wandb.run is None:
                 # 连接到主进程的 wandb run
+                settings = wandb.Settings(init_timeout=90)
+                if (
+                    hasattr(self.config.trainer, "wandb_proxy")
+                    and self.config.trainer.wandb_proxy
+                ):
+                    settings = wandb.Settings(
+                        https_proxy=self.config.trainer.wandb_proxy, init_timeout=90
+                    )
+                elif os.environ.get("https_proxy"):
+                    settings = wandb.Settings(
+                        https_proxy=os.environ.get("https_proxy"), init_timeout=90
+                    )
+
                 wandb.init(
                     project=self.wandb_run_info["project"],
                     id=self.wandb_run_info["id"],
                     entity=self.wandb_run_info.get("entity"),
                     resume="allow",
                     reinit=True,
+                    settings=settings,
                 )
                 print(f"✅ Worker {worker_pid} connected to main wandb run:")
                 print(f"   Project: {self.wandb_run_info['project']}")
@@ -340,6 +354,8 @@ class CraftaxAgentLoop(AgentLoopBase):
             new_obs, new_state, reward, done, _ = env_data["env_wrapper"].step(
                 env_data["current_state"], action_id
             )
+            # print out reward and action
+            # print(f"🔍 Reward: {reward}, Action: {action_id}")
 
             # 更新持久化的环境状态
             env_data["current_obs"] = new_obs
@@ -347,7 +363,6 @@ class CraftaxAgentLoop(AgentLoopBase):
             env_data["episode_step_count"] += 1
 
             # 更新累积奖励
-            raw_episode_id = episode_id
             episode_id = env_data["episode_id"]
             if episode_id not in self.__class__._episode_cumulative_rewards:
                 self.__class__._episode_cumulative_rewards[episode_id] = 0.0
@@ -371,10 +386,9 @@ class CraftaxAgentLoop(AgentLoopBase):
                 import wandb
 
                 if wandb.run is not None:
-                    metric_name = f"craftax/realtime_cumulative_reward/{raw_episode_id}"
                     wandb.log(
                         {
-                            metric_name: current_cumulative_reward,
+                            "craftax/realtime_cumulative_reward": current_cumulative_reward,
                         },
                         step=global_env_steps,
                     )
@@ -421,6 +435,9 @@ class CraftaxAgentLoop(AgentLoopBase):
                             {
                                 "craftax/reward_percentage": reward_percentage,
                                 "craftax/cumulative_reward": cumulative_reward,
+                                "craftax/episode_step_count": env_data[
+                                    "episode_step_count"
+                                ],
                             },
                             step=global_env_steps,
                         )

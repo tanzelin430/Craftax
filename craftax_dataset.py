@@ -39,7 +39,6 @@ class CraftaxDataset(Dataset):
 
         # 从 OmegaConf 配置中读取参数
         self.num_episodes = config.num_episodes
-
         # check
         if self.num_episodes is None:
             raise ValueError("num_episodes is not set")

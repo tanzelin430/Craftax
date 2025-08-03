@@ -183,6 +183,8 @@ class CraftaxQwenAgent:
 
             step_time = time.time() - step_start
             print(f"🔄 [STEP] Environment interaction time: {step_time:.3f}s")
+            # print action name and id
+            print(f"⚡ Action: {action_name} (ID: {action_id})")
 
             total_reward += reward
             step_count += 1
@@ -293,7 +295,7 @@ class CraftaxQwenAgent:
                 step_time = time.time() - step_start
                 total_step_time += step_time
                 print(f"🔄 [STEP] Environment interaction time: {step_time:.3f}s")
-
+                print(f"⚡ LLM Response: {llm_response}")
                 # 更新环境状态
                 env_data["current_state"] = new_state
                 env_data["current_obs"] = wrapped_obs
@@ -347,7 +349,7 @@ class CraftaxQwenAgent:
 def main():
     """主函数"""
     # 模型路径
-    model_path = "/fs-computility/mabasic/shared/models/Qwen3-14B"
+    model_path = "/fs-computility/mabasic/shared/models/Qwen3-8B"
 
     # 检查模型路径是否存在
     if not os.path.exists(model_path):
@@ -357,10 +359,12 @@ def main():
 
     try:
         # 创建智能体
-        agent = CraftaxQwenAgent(model_path=model_path, num_parallel_envs=8)  # 预创建8个环境
+        agent = CraftaxQwenAgent(model_path=model_path, num_parallel_envs=50)  # 预创建8个环境
 
         # 运行测试
-        results = agent.run_multiple_episodes(num_episodes=8, max_steps_per_episode=5)
+        results = agent.run_multiple_episodes(
+            num_episodes=50, max_steps_per_episode=500
+        )
 
         # 保存结果
         import json
